@@ -1,6 +1,7 @@
 "use client";
 import { useContext } from 'react';
-import { AuthContext } from '../components/AuthContext';
+import { AuthContext } from './components/AuthContext';
+import { useAuth, AuthProvider } from './components/AuthContext';
 import Auth from '../components/Auth';
 import { getAuth } from 'firebase/auth'
 import React, { useState, useCallback, useEffect } from 'react';
@@ -41,7 +42,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-export const useAuth = () => useContext(AuthContext);
 
 const MealSuggester = () => {
   const [view, setView] = useState('main');
