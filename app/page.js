@@ -1,5 +1,8 @@
 "use client";
-
+import { useContext } from 'react';
+import { AuthContext } from './components/AuthContext';
+import Auth from './components/Auth';
+import { getAuth } from 'firebase/auth'
 import React, { useState, useCallback, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, getDocs, query } from 'firebase/firestore';
@@ -36,6 +39,9 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+
+export const useAuth = () => useContext(AuthContext);
 
 const MealSuggester = () => {
   const [view, setView] = useState('main');
@@ -54,7 +60,9 @@ const [ingredients, setIngredients] = useState([]);
 useEffect(() => {
   const loadIngredients = async () => {
     try {
-      const ingredientsRef = collection(db, 'ingredients');
+      if (!auth.currentUser) return;
+      const userId = auth.currentUser.uid;
+      const ingredientsRef = collection(db, 'users', userId, 'ingredients');
       const querySnapshot = await getDocs(query(ingredientsRef));
       const loadedIngredients = [];
       querySnapshot.forEach((doc) => {
@@ -67,14 +75,22 @@ useEffect(() => {
   };
 
   loadIngredients();
-}, []);
+}, [auth.currentUser]);
 
 // Add ingredient operations
 const ingredientOperations = {
   addIngredient: async (newIngredient) => {
     try {
-      await addDoc(collection(db, 'ingredients'), { name: newIngredient });
-      setIngredients(prev => [...prev, newIngredient].sort());
+      const userId = auth.currentUser.uid;
+      const userIngredientsRef = collection(db, 'users', userId, 'ingredients');
+      await addDoc(userIngredientsRef, { name: newIngredient });
+      // Reload ingredients instead of just updating state
+      const querySnapshot = await getDocs(query(userIngredientsRef));
+      const loadedIngredients = [];
+      querySnapshot.forEach((doc) => {
+        loadedIngredients.push({ id: doc.id, name: doc.data().name });
+      });
+      setIngredients(loadedIngredients.map(ing => ing.name).sort());
     } catch (error) {
       console.error('Error adding ingredient:', error);
     }
@@ -82,7 +98,7 @@ const ingredientOperations = {
 
   deleteIngredient: async (ingredientToDelete) => {
     try {
-      // Find all meals using this ingredient
+      const userId = auth.currentUser.uid;
       const mealsWithIngredient = customMeals.filter(
         meal => meal.mainIngredient === ingredientToDelete
       );
@@ -94,7 +110,7 @@ const ingredientOperations = {
         };
       }
 
-      const ingredientsRef = collection(db, 'ingredients');
+      const ingredientsRef = collection(db, 'users', userId, 'ingredients');
       const q = query(ingredientsRef);
       const querySnapshot = await getDocs(q);
       querySnapshot.forEach(async (doc) => {
@@ -112,26 +128,29 @@ const ingredientOperations = {
   }
 };
 
-  useEffect(() => {
-    const loadMeals = async () => {
-      try {
-        const mealsRef = collection(db, 'meals');
-        const q = query(mealsRef);
-        const querySnapshot = await getDocs(q);
-        const loadedMeals = [];
-        querySnapshot.forEach((doc) => {
-          loadedMeals.push({ id: doc.id, ...doc.data() });
-        });
-        setCustomMeals(loadedMeals);
-      } catch (error) {
-        console.error('Error loading meals:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+useEffect(() => {
+  const loadMeals = async () => {
+    if (!auth.currentUser) return;
+    
+    try {
+      const userId = auth.currentUser.uid;
+      const mealsRef = collection(db, 'users', userId, 'meals');
+      const querySnapshot = await getDocs(query(mealsRef));
+      const loadedMeals = [];
+      querySnapshot.forEach((doc) => {
+        loadedMeals.push({ id: doc.id, ...doc.data() });
+      });
+      setCustomMeals(loadedMeals);
+    } catch (error) {
+      console.error('Error loading meals:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    loadMeals();
-  }, []);
+  loadMeals();
+}, [auth.currentUser]);
+
 
   const getMealSuggestions = useCallback((ingredient) => {
     return customMeals.filter(meal => meal.mainIngredient === ingredient);
@@ -140,17 +159,21 @@ const ingredientOperations = {
   const mealOperations = {
     addMeal: async (newMeal) => {
       try {
-        const docRef = await addDoc(collection(db, 'meals'), newMeal);
+        const userId = auth.currentUser.uid;
+        const userMealsRef = collection(db, 'users', userId, 'meals');
+        const docRef = await addDoc(userMealsRef, newMeal);
         setCustomMeals(prevMeals => [...prevMeals, { ...newMeal, id: docRef.id }]);
       } catch (error) {
         console.error('Error adding meal:', error);
       }
     },
-    
+      
     updateMeal: async (updatedMeal) => {
       try {
+        const userId = auth.currentUser.uid;
         const { id, ...mealData } = updatedMeal;
-        await updateDoc(doc(db, 'meals', id), mealData);
+        const mealRef = doc(db, 'users', userId, 'meals', id);
+        await updateDoc(mealRef, mealData);
         setCustomMeals(prevMeals => 
           prevMeals.map(meal => 
             meal.id === id ? updatedMeal : meal
@@ -160,10 +183,12 @@ const ingredientOperations = {
         console.error('Error updating meal:', error);
       }
     },
-    
+      
     deleteMeal: async (mealId) => {
       try {
-        await deleteDoc(doc(db, 'meals', mealId));
+        const userId = auth.currentUser.uid;
+        const mealRef = doc(db, 'users', userId, 'meals', mealId);
+        await deleteDoc(mealRef);
         setCustomMeals(prevMeals => 
           prevMeals.filter(meal => meal.id !== mealId)
         );
@@ -430,6 +455,7 @@ const ingredientOperations = {
         </form>
       </div>
     );
+    
   };
 
   const DeleteConfirmDialog = () => (
@@ -530,157 +556,179 @@ const ingredientOperations = {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 py-8 px-4">
-      <div className="max-w-md mx-auto">
-        <Card className="w-full bg-white shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <CardContent className="pt-6">
-            {view === 'main' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center border-b pb-4">
-                  <h2 className="text-2xl font-bold text-blue-900">What's for Dinner?</h2>
-                  <Button 
-                    onClick={() => setView('add')}
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-200"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                    <span className="hidden sm:inline">Add New Meal</span>
-                    <span className="sm:hidden">Add</span>
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-  <div className="flex gap-2 items-start">
-    <select
-      value={selectedIngredient}
-      onChange={(e) => setSelectedIngredient(e.target.value)}
-      className="flex-1 p-3 border border-blue-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-200"
-    >
-      <option value="">Select a main ingredient</option>
-      {ingredients.map((ingredient) => (
-        <option key={ingredient} value={ingredient}>
-          {ingredient}
-        </option>
-      ))}
-    </select>
-    <Button
-      onClick={() => {
-        // Create a dialog to manage ingredients
-        const newIngredient = prompt('Enter new ingredient name:');
-        if (newIngredient?.trim()) {
-          ingredientOperations.addIngredient(newIngredient.trim());
-        }
-      }}
-      className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg transition-colors duration-200"
-    >
-      <PlusCircle className="h-4 w-4" />
-    </Button>
-    {selectedIngredient && (
-      <Button
-        onClick={async () => {
-          const result = await ingredientOperations.deleteIngredient(selectedIngredient);
-          if (!result.success) {
-            alert(result.message);
-          } else {
-            setSelectedIngredient('');
-          }
-        }}
-        className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg transition-colors duration-200"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    )}
-  </div>
-
-                  {selectedIngredient && (
-                    <div className="bg-white rounded-lg border border-blue-100 p-4">
-                      <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-lg font-semibold text-blue-900">
-                          Meal suggestions with {selectedIngredient}:
-                        </h3>
-                        <Button
-                          onClick={() => {
-                            const meals = getMealSuggestions(selectedIngredient);
-                            if (meals.length > 0) {
-                              const randomMeal = meals[Math.floor(Math.random() * meals.length)];
-                              setSelectedMeal(randomMeal);
-                              setShowDetailsDialog(true);
-                            }
-                          }}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
+    <AuthProvider>
+      {!auth.currentUser ? (
+        <Auth />
+      ) : (
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 py-8 px-4">
+          <div className="max-w-md mx-auto">
+            <Card className="w-full bg-white shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="pt-6">
+                {view === 'main' && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center border-b pb-4">
+                      <h2 className="text-2xl font-bold text-blue-900">What's for Dinner?</h2>
+                      <Button 
+                        onClick={() => setView('add')}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-200"
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                        <span className="hidden sm:inline">Add New Meal</span>
+                        <span className="sm:hidden">Add</span>
+                      </Button>
+                    </div>
+   
+                    <div className="space-y-4">
+                      <div className="flex gap-2 items-start">
+                        <select
+                          value={selectedIngredient}
+                          onChange={(e) => setSelectedIngredient(e.target.value)}
+                          className="flex-1 p-3 border border-blue-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-200"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                            <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
-                            <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
-                            <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                          </svg>
-                          Surprise Me!
+                          <option value="">Select a main ingredient</option>
+                          {ingredients.map((ingredient) => (
+                            <option key={ingredient} value={ingredient}>
+                              {ingredient}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+  onClick={() => {
+    const newIngredient = prompt('Enter new ingredient name:');
+    if (newIngredient?.trim()) {
+      const isDuplicate = ingredients.some(
+        ing => ing.toLowerCase() === newIngredient.trim().toLowerCase()
+      );
+      
+      if (isDuplicate) {
+        alert('This ingredient already exists!');
+        return;
+      }
+      
+      const validName = /^[a-zA-Z0-9\s]+$/.test(newIngredient.trim());
+      if (!validName) {
+        alert('Ingredient name can only contain letters, numbers, and spaces');
+        return;
+      }
+
+      ingredientOperations.addIngredient(newIngredient.trim());
+    }
+  }}
+  className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg transition-colors duration-200"
+>
+                          <PlusCircle className="h-4 w-4" />
                         </Button>
-                      </div>
-                      <div className="space-y-2">
-                        {isLoading ? (
-                          <div className="text-center py-4 text-gray-500">Loading meals...</div>
-                        ) : (
-                          getMealSuggestions(selectedIngredient).map((meal) => (
-                            <div 
-                              key={meal.id} 
-                              className="flex justify-between items-center p-3 hover:bg-blue-50 rounded-md border border-blue-100 transition-all duration-200"
-                            >
-                              <span className="text-blue-900">{meal.name}</span>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setSelectedMeal(meal);
-                                    setShowDetailsDialog(true);
-                                  }}
-                                >
-                                  <Info className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setEditingMeal(meal);
-                                    setView('edit');
-                                  }}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-600 hover:text-red-700"
-                                  onClick={() => {
-                                    setSelectedMeal(meal);
-                                    setShowDeleteDialog(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))
+                        {selectedIngredient && (
+                          <Button
+                            onClick={async () => {
+                              const result = await ingredientOperations.deleteIngredient(selectedIngredient);
+                              if (!result.success) {
+                                alert(result.message);
+                              } else {
+                                setSelectedIngredient('');
+                              }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg transition-colors duration-200"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
+   
+                      {selectedIngredient && (
+                        <div className="bg-white rounded-lg border border-blue-100 p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-lg font-semibold text-blue-900">
+                              Meal suggestions with {selectedIngredient}:
+                            </h3>
+                            <Button
+                              onClick={() => {
+                                const meals = getMealSuggestions(selectedIngredient);
+                                if (meals.length > 0) {
+                                  const randomMeal = meals[Math.floor(Math.random() * meals.length)];
+                                  setSelectedMeal(randomMeal);
+                                  setShowDetailsDialog(true);
+                                }
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-2"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
+                                <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
+                                <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                              </svg>
+                              Surprise Me!
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            {isLoading ? (
+                              <div className="text-center py-4 text-gray-500">Loading meals...</div>
+                            ) : getMealSuggestions(selectedIngredient).length === 0 ? (
+                              <div className="text-center py-4 text-gray-500">No meals found with this ingredient</div>
+                            ) : (
+                              getMealSuggestions(selectedIngredient).map((meal) => (
+                                <div 
+                                  key={meal.id} 
+                                  className="flex justify-between items-center p-3 hover:bg-blue-50 rounded-md border border-blue-100 transition-all duration-200"
+                                >
+                                  <span className="text-blue-900">{meal.name}</span>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => {
+                                        setSelectedMeal(meal);
+                                        setShowDetailsDialog(true);
+                                      }}
+                                    >
+                                      <Info className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => {
+                                        setEditingMeal(meal);
+                                        setView('edit');
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-red-600 hover:text-red-700"
+                                      onClick={() => {
+                                        setSelectedMeal(meal);
+                                        setShowDeleteDialog(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {view === 'add' && <MealForm />}
-            {view === 'edit' && <MealForm initialData={editingMeal} />}
-            <DeleteConfirmDialog />
-            <RecipeDetailsDialog />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );}
+                  </div>
+                )}
+                {view === 'add' && <MealForm />}
+                {view === 'edit' && <MealForm initialData={editingMeal} />}
+                <DeleteConfirmDialog />
+                <RecipeDetailsDialog />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+    </AuthProvider>
+   );}
 
 export default MealSuggester;
