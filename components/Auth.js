@@ -1,7 +1,9 @@
 "use client";
+
 import { useState } from 'react';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation'; // Import router for navigation
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -9,16 +11,25 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const auth = getAuth();
+  const router = useRouter(); // Initialize router
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        console.log("Attempting login with:", email);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log("Login successful:", userCredential.user);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        console.log("Attempting registration with:", email);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("Registration successful:", userCredential.user);
       }
+
+      // Redirect to dashboard after successful login/registration
+      router.push('../page'); // Adjust this path to your actual dashboard route
     } catch (error) {
+      console.error("Authentication error:", error);
       setError(error.message);
     }
   };
