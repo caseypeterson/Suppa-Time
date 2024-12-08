@@ -1,9 +1,10 @@
 "use client";
+
 import { useContext } from 'react';
 import { AuthContext } from './components/AuthContext';
 import { useAuth, AuthProvider } from './components/AuthContext';
-import Auth from '../components/Auth';
-import { getAuth } from 'firebase/auth'
+import Auth from './components/Auth';
+import { getAuth } from 'firebase/auth';
 import React, { useState, useCallback, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, getDocs, query } from 'firebase/firestore';
@@ -26,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyBnFSTAY9jZT6jKAZzXMENECNG3gzgumsg",
