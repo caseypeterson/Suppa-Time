@@ -12,7 +12,6 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
-  const auth = getAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();

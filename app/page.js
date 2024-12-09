@@ -43,7 +43,7 @@ const firebaseConfig = {
 
 
 const MealSuggester = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   console.log("MealSuggester render:", { user, loading });
   const [view, setView] = useState('main');
   const [selectedIngredient, setSelectedIngredient] = useState('');
@@ -563,6 +563,11 @@ useEffect(() => {
       {!user ? (
         <Auth />
       ) : (
+        <div>
+          <p>Welcome, {user.email}!</p>
+          <Button onClick={logout} className="bg-red-500 hover:bg-red-600 text-white">
+            Logout
+          </Button>
         <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 py-8 px-4">
           <div className="max-w-md mx-auto">
             <Card className="w-full bg-white shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -729,6 +734,7 @@ useEffect(() => {
               </CardContent>
             </Card>
           </div>
+        </div>
         </div>
       )}
     </>
