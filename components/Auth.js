@@ -13,11 +13,18 @@ export default function Auth() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("Form submitted");
+    const formData = { email, password }; // Add this
+    console.log("Form data:", formData); // Add this
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        console.log("Attempting login with:", email);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log("Login successful:", userCredential.user);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        console.log("Attempting registration with:", email);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        console.log("Registration successful:", userCredential.user);
       }
     } catch (error) {
       console.error("Authentication error:", error);

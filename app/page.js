@@ -44,7 +44,8 @@ const auth = getAuth(app);
 
 
 const MealSuggester = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  console.log("MealSuggester render:", { user, loading });
   const [view, setView] = useState('main');
   const [selectedIngredient, setSelectedIngredient] = useState('');
   const [customMeals, setCustomMeals] = useState([]);
@@ -559,7 +560,7 @@ useEffect(() => {
   );
 
   return (
-    <AuthProvider>
+    <>
       {!user ? (
         <Auth />
       ) : (
@@ -731,7 +732,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-    </AuthProvider>
+    </>
    );}
 
 export default MealSuggester;

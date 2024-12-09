@@ -1,3 +1,12 @@
+"use client";
+
+
+
+
+
+
+
+import { AuthProvider } from '../components/AuthContext';
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -13,18 +22,13 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-export const metadata = {
-  title: "Suppa Time - Meal Planner",
-  description: "Your personal meal planning assistant",
-};
-
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

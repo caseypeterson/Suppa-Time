@@ -11,22 +11,30 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Auth state changed:", currentUser); // Debug line
-      setUser(currentUser);
+    console.log("Setting up auth listener");
+    return onAuthStateChanged(auth, (currentUser) => {
+      console.log("Auth state changed:", currentUser);
+      setUser(currentUser || null); // Ensure we're setting a definite value
       setLoading(false);
     });
-
-    return () => unsubscribe();
   }, []);
 
+  const value = {
+    user,
+    loading
+  };
+
   return (
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
