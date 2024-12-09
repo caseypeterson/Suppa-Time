@@ -1,9 +1,6 @@
 "use client";
-
-import { useContext } from 'react';
-import { AuthContext } from '../components/AuthContext';
 import { useAuth, AuthProvider } from '../components/AuthContext';
-import Auth from '../components/Auth';
+import Auth from './components/Auth';
 import { getAuth } from 'firebase/auth';
 import React, { useState, useCallback, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
@@ -47,6 +44,7 @@ const auth = getAuth(app);
 
 
 const MealSuggester = () => {
+  const { user } = useAuth();
   const [view, setView] = useState('main');
   const [selectedIngredient, setSelectedIngredient] = useState('');
   const [customMeals, setCustomMeals] = useState([]);
@@ -63,8 +61,8 @@ const [ingredients, setIngredients] = useState([]);
 useEffect(() => {
   const loadIngredients = async () => {
     try {
-      if (!auth.currentUser) return;
-      const userId = auth.currentUser.uid;
+      if (!user) return;
+      const userId = user.uid;
       const ingredientsRef = collection(db, 'users', userId, 'ingredients');
       const querySnapshot = await getDocs(query(ingredientsRef));
       const loadedIngredients = [];
@@ -78,13 +76,14 @@ useEffect(() => {
   };
 
   loadIngredients();
-}, [auth.currentUser]);
+}, [user]);
 
 // Add ingredient operations
 const ingredientOperations = {
   addIngredient: async (newIngredient) => {
     try {
-      const userId = auth.currentUser.uid;
+      if (!user) return;
+      const userId = user.uid;
       const userIngredientsRef = collection(db, 'users', userId, 'ingredients');
       await addDoc(userIngredientsRef, { name: newIngredient });
       // Reload ingredients instead of just updating state
@@ -101,7 +100,7 @@ const ingredientOperations = {
 
   deleteIngredient: async (ingredientToDelete) => {
     try {
-      const userId = auth.currentUser.uid;
+      const userId = user.uid;
       const mealsWithIngredient = customMeals.filter(
         meal => meal.mainIngredient === ingredientToDelete
       );
@@ -133,10 +132,10 @@ const ingredientOperations = {
 
 useEffect(() => {
   const loadMeals = async () => {
-    if (!auth.currentUser) return;
+    if (!user) return;
     
     try {
-      const userId = auth.currentUser.uid;
+      const userId = user.uid;
       const mealsRef = collection(db, 'users', userId, 'meals');
       const querySnapshot = await getDocs(query(mealsRef));
       const loadedMeals = [];
@@ -152,7 +151,7 @@ useEffect(() => {
   };
 
   loadMeals();
-}, [auth.currentUser]);
+}, [user]);
 
 
   const getMealSuggestions = useCallback((ingredient) => {
@@ -162,7 +161,8 @@ useEffect(() => {
   const mealOperations = {
     addMeal: async (newMeal) => {
       try {
-        const userId = auth.currentUser.uid;
+        if (!user) return;
+        const userId = user.uid;
         const userMealsRef = collection(db, 'users', userId, 'meals');
         const docRef = await addDoc(userMealsRef, newMeal);
         setCustomMeals(prevMeals => [...prevMeals, { ...newMeal, id: docRef.id }]);
@@ -173,7 +173,7 @@ useEffect(() => {
       
     updateMeal: async (updatedMeal) => {
       try {
-        const userId = auth.currentUser.uid;
+        const userId = user.uid;
         const { id, ...mealData } = updatedMeal;
         const mealRef = doc(db, 'users', userId, 'meals', id);
         await updateDoc(mealRef, mealData);
@@ -189,7 +189,7 @@ useEffect(() => {
       
     deleteMeal: async (mealId) => {
       try {
-        const userId = auth.currentUser.uid;
+        const userId = user.uid;
         const mealRef = doc(db, 'users', userId, 'meals', mealId);
         await deleteDoc(mealRef);
         setCustomMeals(prevMeals => 
@@ -560,7 +560,7 @@ useEffect(() => {
 
   return (
     <AuthProvider>
-      {!auth.currentUser ? (
+      {!user ? (
         <Auth />
       ) : (
         <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 py-8 px-4">
