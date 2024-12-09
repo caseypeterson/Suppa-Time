@@ -1,10 +1,11 @@
+// app/page.js
 "use client";
-import { useAuth, AuthProvider } from '../components/AuthContext';
-import Auth from '../components/Auth';
-import { getAuth } from 'firebase/auth';
+
+import { db, auth } from './firebase'; // Path to firebase.js remains the same
+import { useAuth } from '../components/AuthContext'; // Path to AuthContext.js
+import Auth from '../components/Auth'; // Path to Auth.js
 import React, { useState, useCallback, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, getDocs, query } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, updateDoc, doc, getDocs, query } from 'firebase/firestore'; // Firestore methods
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, ArrowLeft, Trash2, Edit2, Info } from 'lucide-react';
@@ -27,6 +28,9 @@ import {
 
 
 
+
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyBnFSTAY9jZT6jKAZzXMENECNG3gzgumsg",
   authDomain: "suppa-time.firebaseapp.com",
@@ -36,11 +40,6 @@ const firebaseConfig = {
   appId: "1:848567631853:web:9b56dc947a3ed7573671e4",
   measurementId: "G-FG2ZZZLEC0"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
 
 
 const MealSuggester = () => {

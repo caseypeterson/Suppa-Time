@@ -1,8 +1,11 @@
 "use client";
-
+// components/Auth.js
+import { auth } from '../app/firebase'; // Adjusted path to firebase.js
 import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
+
+
 
 export default function Auth() {
   const [email, setEmail] = useState('');

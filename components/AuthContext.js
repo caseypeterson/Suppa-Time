@@ -1,7 +1,7 @@
-"use client";
-
+// components/AuthContext.js
+import { auth } from '../app/firebase'; // Adjusted path to firebase.js
 import { createContext, useState, useContext, useEffect } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const AuthContext = createContext({});
 
@@ -10,19 +10,17 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const auth = getAuth();
     console.log("Setting up auth listener");
-    return onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       console.log("Auth state changed:", currentUser);
-      setUser(currentUser || null); // Ensure we're setting a definite value
+      setUser(currentUser || null);
       setLoading(false);
     });
+
+    return unsubscribe;
   }, []);
 
-  const value = {
-    user,
-    loading
-  };
+  const value = { user, loading };
 
   return (
     <AuthContext.Provider value={value}>
